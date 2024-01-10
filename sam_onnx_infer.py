@@ -66,7 +66,7 @@ class InferModule:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", type=str, default="sample/dolphin.jpg")
+    parser.add_argument("--input", type=str, default="sample/chaewon.png")
     parser.add_argument("--output", type=str, default="sample/mask.jpg")
     parser.add_argument("--model", type=str, default="onnx_output/sam.onnx")
     args = parser.parse_args()

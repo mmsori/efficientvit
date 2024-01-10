@@ -76,7 +76,7 @@ def export_onnx(args):
     # embed_dim = sam.prompt_encoder.embed_dim
     # embed_size = sam.prompt_encoder.image_embedding_size
     dummy_inputs = {
-        "image": torch.randn(1, 3, 443, 553, dtype=torch.float),
+        "image": torch.randn(1, 443, 553, 3, dtype=torch.float),
         "point_coords": torch.randint(low=0, high=1024, size=(1, 3, 2), dtype=torch.float),
         "point_labels": torch.randint(low=0, high=4, size=(1, 3), dtype=torch.float),
         # "mask_input": torch.randn(1, 256, 256, dtype=torch.float),

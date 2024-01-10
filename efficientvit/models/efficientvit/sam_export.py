@@ -30,7 +30,7 @@ class PreProcess(nn.Module):
         return new_x
 
     def forward(self, image: torch.Tensor, point_coords: torch.Tensor, org_img_shape: torch.Tensor):
-        #  image = image.permute(0, 3, 1, 2)
+        image = image.permute(0, 3, 1, 2)
         coord = self.transform.apply_coords_torch(point_coords, org_img_shape)
         image, target_size = self.transform.apply_image_torch(
             image, org_img_shape)
@@ -119,11 +119,8 @@ class ExportEfficientSam(nn.Module):
             image = image[None, ...]
             point_coords = point_coords[None, ...]
             point_labels = point_labels[None, ...]
-        if self.format == "onnx":
-            image, point_coords, target_size = self.preprocess_module(
-                image, point_coords, org_img_shape)
-        else:
-            image = image.permute(0, 3, 1, 2)
+        image, point_coords, target_size = self.preprocess_module(
+            image, point_coords, org_img_shape)
         image_embedding = self.image_encoder(image)
         mask, score = self.sam_model(
             image_embedding, point_coords, point_labels)
