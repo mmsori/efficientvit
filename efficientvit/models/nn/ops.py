@@ -80,7 +80,7 @@ class ConvLayer(nn.Module):
 class UpSampleLayer(nn.Module):
     def __init__(
         self,
-        mode="bicubic",
+        mode="bilinear",
         size: int or tuple[int, int] or list[int] or None = None,
         factor=2,
         align_corners=False,

@@ -5,3 +5,4 @@
 from .list import *
 from .network import *
 from .random import *
+from .transforms import ResizeLongestSide
