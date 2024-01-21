@@ -8,18 +8,21 @@ import numpy as np
 
 
 class PreProcess(nn.Module):
-    def __init__(self):
+    def __init__(self, img_resize=False):
         super().__init__()
         self.transform = ResizeLongestSide(1024)
         self.pixel_mean = torch.tensor(
             [123.675, 116.28, 103.53]).view(-1, 1, 1)
         self.pixel_std = torch.tensor([58.395, 57.12, 57.375]).view(-1, 1, 1)
         self.img_size = torch.tensor(1024, dtype=torch.int64)
+        self.image_resize = img_resize
 
-    def preprocess(self, x: torch.Tensor, transformed_size: torch.Tensor) -> np.ndarray:
+    def preprocess(self, x: torch.Tensor, transformed_size: torch.Tensor = None) -> np.ndarray:
         # Normalize colors
 
         x = (x - self.pixel_mean) / self.pixel_std
+        if not self.image_resize:
+            return x
 
         # Pad
         # padh = img_size - transformed_size[0]
@@ -31,33 +34,40 @@ class PreProcess(nn.Module):
 
     def forward(self, image: torch.Tensor, point_coords: torch.Tensor, org_img_shape: torch.Tensor):
         image = image.permute(0, 3, 1, 2)
-        coord = self.transform.apply_coords_torch(point_coords, org_img_shape)
-        image, target_size = self.transform.apply_image_torch(
-            image, org_img_shape)
-        image = self.preprocess(image, target_size)
-        return image, coord, target_size
+        if self.image_resize:
+            point_coords = self.transform.apply_coords_torch(
+                point_coords, org_img_shape)
+            image, target_size = self.transform.apply_image_torch(
+                image, org_img_shape)
+            image = self.preprocess(image, target_size)
+        else:
+            image = self.preprocess(image)
+            target_size = None
+        return image, point_coords, target_size
 
 
 class PostProcess(nn.Module):
-    def __init__(self):
+    def __init__(self, image_resize=False):
         super().__init__()
+        self.image_resize = image_resize
 
     def forward(self, mask: torch.Tensor, target_size, org_img_shape, ch=3):
-        masks: torch.Tensor = F.interpolate(
-            mask,
-            (1024, 1024),
-            mode="bilinear",
-            align_corners=False,
-        )
-        masks = masks[..., : target_size[0], : target_size[1]]
-        masks = F.interpolate(masks, size=(
-            org_img_shape[0], org_img_shape[1]), mode="bilinear", align_corners=False)
-        masks = (masks > 0).type(torch.int64) * \
+        if self.image_resize:
+            mask: torch.Tensor = F.interpolate(
+                mask,
+                (1024, 1024),
+                mode="bilinear",
+                align_corners=False,
+            )
+            mask = mask[..., : target_size[0], : target_size[1]]
+            mask = F.interpolate(mask, size=(
+                org_img_shape[0], org_img_shape[1]), mode="bilinear", align_corners=False)
+        mask = (mask > 0).type(torch.int64) * \
             torch.tensor(255, dtype=torch.int64)
-        masks = masks.expand(1, ch, -1, -1)
-        masks = masks.permute(0, 2, 3, 1)
-        masks = masks.type(torch.uint8)
-        return masks
+        mask = mask.expand(1, ch, -1, -1)
+        mask = mask.permute(0, 2, 3, 1)
+        mask = mask.type(torch.uint8)
+        return mask
 
 
 class ImageEncoder(nn.Module):
@@ -97,12 +107,12 @@ class SAM(EfficientViTSamPredictor):
 
 
 class ExportEfficientSam(nn.Module):
-    def __init__(self, sam: EfficientViTSam, format: Literal["onnx", "coremltools"], include_batch_axis=False):
+    def __init__(self, sam: EfficientViTSam, format: Literal["onnx", "coremltools"], include_batch_axis=False, image_resize=False):
         super().__init__()
-        self.preprocess_module = PreProcess()
+        self.preprocess_module = PreProcess(image_resize)
         self.image_encoder = ImageEncoder(sam)
         self.sam_model = SAM(sam)
-        self.postprocess_module = PostProcess()
+        self.postprocess_module = PostProcess(image_resize)
         self.format = format
         self.sam = sam
         self.include_batch_axis = include_batch_axis

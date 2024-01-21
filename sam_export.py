@@ -64,24 +64,29 @@ def export_onnx(args):
         args.model, True, args.checkpoint, img_size=1024).eval()
     # sam = EfficientViTSamPredictor(efficientvit_sam)
     onnx_model = ExportEfficientSam(
-        efficientvit_sam, "onnx", include_batch_axis=True)
+        efficientvit_sam, "onnx", include_batch_axis=True, image_resize=args.include_resize)
     onnx_model.eval()
-
-    dynamic_axes = {
-        "image": {1: "width", 2: "height"},
-        "point_coords": {1: "num_points"},
-        "point_labels": {1: "num_points"},
-    }
+    if args.include_resize:
+        dynamic_axes = {
+            "image": {1: "width", 2: "height"},
+            "point_coords": {1: "num_points"},
+            "point_labels": {1: "num_points"},
+        }
+    else:
+        dynamic_axes = {
+            "point_coords": {1: "num_points"},
+            "point_labels": {1: "num_points"},
+        }
 
     # embed_dim = sam.prompt_encoder.embed_dim
     # embed_size = sam.prompt_encoder.image_embedding_size
     dummy_inputs = {
-        "image": torch.randn(1, 443, 553, 3, dtype=torch.float),
+        "image": torch.randn(1, 1024, 1024, 3, dtype=torch.float),
         "point_coords": torch.randint(low=0, high=1024, size=(1, 3, 2), dtype=torch.float),
         "point_labels": torch.randint(low=0, high=4, size=(1, 3), dtype=torch.float),
         # "mask_input": torch.randn(1, 256, 256, dtype=torch.float),
         # "has_mask_input": torch.tensor([0], dtype=torch.float),
-        "org_img_shape": torch.tensor([443, 553], dtype=torch.int64),
+        "org_img_shape": torch.tensor([1024, 1024], dtype=torch.int64),
     }
 
     _ = onnx_model(**dummy_inputs)
@@ -109,11 +114,12 @@ def export_onnx(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, default="l0")
+    parser.add_argument("--model", type=str, default="l2")
     parser.add_argument("--checkpoint", type=str,
-                        default="assets/checkpoints/l0.pt")
+                        default="assets/checkpoints/l2.pt")
     parser.add_argument("--format", type=str, default="onnx")
     parser.add_argument("--output", type=str, default="onnx_output/sam.onnx")
+    parser.add_argument("--include-resize", action='store_true')
     args = parser.parse_args()
     if args.format == "onnx":
         export_onnx(args)
